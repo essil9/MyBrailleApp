@@ -5,19 +5,25 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows;
-//hello
+using System.Windows.Controls;
+
 namespace BrailleTranslatorApp
 {
     public partial class MainWindow : Window
     {
-        private Dictionary<string, string> availableTables;
+        private const int MaxLinesPerPage = 20; // Nombre de lignes avant une nouvelle page
+        private Dictionary<string, string> availableTables = new(); // ✅ Initialisation pour éviter le warning
         private const string tablesDirectory = "C:/msys64/usr/share/liblouis/tables";
+
+        private List<TextBox> textPages = new();
+        private List<TextBox> braillePages = new();
 
         public MainWindow()
         {
             InitializeComponent();
             InitializeUI();
             LoadTables();
+            AddNewPage(); // ✅ Créer la première page
         }
 
         private void InitializeUI()
@@ -48,30 +54,48 @@ namespace BrailleTranslatorApp
             return tables;
         }
 
-        private void TextInput_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void TextInput_TextChanged(object sender, TextChangedEventArgs e)
         {
-            string inputText = textInput.Text;
-            if (string.IsNullOrWhiteSpace(inputText))
+            if (textPages.Count == 0) return;
+
+            TextBox currentTextBox = textPages.Last();
+            string[] lines = currentTextBox.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            // ✅ Si on dépasse le nombre de lignes, on crée une nouvelle page
+            if (lines.Length > MaxLinesPerPage)
             {
-                brailleOutput.Clear();
-                return;
+                string overflowText = string.Join(Environment.NewLine, lines.Skip(MaxLinesPerPage));
+                currentTextBox.Text = string.Join(Environment.NewLine, lines.Take(MaxLinesPerPage));
+
+                AddNewPage();
+                textPages.Last().Text = overflowText; // ✅ Ajouter l'excédent sur la nouvelle page
             }
 
-            string selectedTable = tableComboBox.SelectedItem?.ToString();
-            if (selectedTable == null || !availableTables.ContainsKey(selectedTable))
-            {
-                brailleOutput.Text = "Please select a valid Braille table.";
-                return;
-            }
-
-            string tablePath = availableTables[selectedTable];
-            string result = RunLibLouisTranslation(inputText, tablePath);
-
-            brailleOutput.Text = result;
+            // ✅ Traduire en Braille et mettre à jour la sortie
+            UpdateBrailleOutput();
         }
 
-        private string RunLibLouisTranslation(string input, string tablePath)
+        private void UpdateBrailleOutput()
         {
+            braillePagesContainer.Children.Clear();
+            braillePages.Clear();
+
+            foreach (var textPage in textPages)
+            {
+                string translatedText = RunLibLouisTranslation(textPage.Text, tableComboBox.SelectedItem?.ToString() ?? "");
+                TextBox braillePage = CreateBraillePage(translatedText);
+                braillePages.Add(braillePage);
+                braillePagesContainer.Children.Add(braillePage);
+            }
+        }
+
+        private string RunLibLouisTranslation(string input, string tableName)
+        {
+            if (string.IsNullOrWhiteSpace(input) || string.IsNullOrEmpty(tableName) || !availableTables.ContainsKey(tableName))
+                return "Please select a valid Braille table.";
+
+            string tablePath = availableTables[tableName];
+
             try
             {
                 ProcessStartInfo psi = new ProcessStartInfo
@@ -85,7 +109,7 @@ namespace BrailleTranslatorApp
                     StandardOutputEncoding = Encoding.UTF8
                 };
 
-                using (Process process = new Process { StartInfo = psi })
+                using (Process process = new() { StartInfo = psi })
                 {
                     process.Start();
 
@@ -97,7 +121,7 @@ namespace BrailleTranslatorApp
                     string output = process.StandardOutput.ReadToEnd();
                     process.WaitForExit();
 
-                    return output.Trim();  // Clean any trailing whitespaces or newlines
+                    return output.Trim();
                 }
             }
             catch (Exception ex)
@@ -106,5 +130,65 @@ namespace BrailleTranslatorApp
                 return "Error!";
             }
         }
+
+        private void AddNewPage()
+        {
+            // ✅ Ajouter une nouvelle page de saisie
+            TextBox newTextPage = CreateTextPage();
+            textPages.Add(newTextPage);
+            textPagesContainer.Children.Add(newTextPage);
+
+            // ✅ Ajouter une nouvelle page de sortie Braille
+            TextBox newBraillePage = CreateBraillePage();
+            braillePages.Add(newBraillePage);
+            braillePagesContainer.Children.Add(newBraillePage);
+        }
+
+        private TextBox CreateTextPage()
+        {
+            TextBox textPage = new TextBox
+            {
+                AcceptsReturn = true,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                TextWrapping = TextWrapping.Wrap, // ✅ Retour à la ligne automatique
+                Height = 400, // ✅ Hauteur d'une page
+                Width = 450,
+                MaxLines = MaxLinesPerPage
+            };
+
+            // ✅ Corriger l'attachement de l'événement
+            textPage.TextChanged += TextInput_TextChanged;
+
+            return textPage;
+        }
+        private void NewDocument_Click(object sender, RoutedEventArgs e)
+{
+    // Effacer les pages existantes
+    textPagesContainer.Children.Clear();
+    braillePagesContainer.Children.Clear();
+    
+    textPages.Clear();
+    braillePages.Clear();
+
+    // Ajouter une nouvelle page vide
+    AddNewPage();
+}
+ 
+        private TextBox CreateBraillePage(string text = "")
+        {
+            TextBox braillePage = new TextBox
+            {
+                AcceptsReturn = true,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                TextWrapping = TextWrapping.Wrap, // ✅ Retour à la ligne automatique
+                Height = 400, // ✅ Hauteur d'une page
+                Width = 450,
+                IsReadOnly = true,
+                Text = text
+            };
+
+            return braillePage;
+        }
     }
 }
+

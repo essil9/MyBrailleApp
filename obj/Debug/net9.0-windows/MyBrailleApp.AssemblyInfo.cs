@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MyBrailleApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+075772ee9716f5f0523a6650b736b191a12ed7bd")]
 [assembly: System.Reflection.AssemblyProductAttribute("MyBrailleApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MyBrailleApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
